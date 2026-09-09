@@ -12,7 +12,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
-      child: const MyApp(),
+      child: MyApp(),
     ),
   );
 }

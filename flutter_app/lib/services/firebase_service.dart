@@ -2,13 +2,31 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import '../models/chat_model.dart';
 
-class FirebaseService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
-  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+abstract class ChatService {
+  Future<List<Chat>> getAllChatsFromFirestore();
+  Future<void> saveChatToFirestore(Chat chat);
+  Future<void> deleteChatFromFirestore(String chatId);
+  Future<Chat?> getChatFromFirestore(String chatId);
+}
+
+class FirebaseService implements ChatService {
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+  final FirebaseAnalytics _analytics;
+  final FirebaseCrashlytics _crashlytics;
+
+  FirebaseService({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+    FirebaseAnalytics? analytics,
+    FirebaseCrashlytics? crashlytics,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance,
+        _analytics = analytics ?? FirebaseAnalytics.instance,
+        _crashlytics = crashlytics ?? FirebaseCrashlytics.instance;
 
   User? getCurrentUser() {
     return _auth.currentUser;

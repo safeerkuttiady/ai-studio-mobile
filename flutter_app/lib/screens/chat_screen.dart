@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/chat_model.dart';
-import '../providers/auth_provider.dart';
 import '../services/firebase_service.dart';
 import 'chat_detail_screen.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final ChatService chatService;
+
+  ChatScreen({super.key, ChatService? chatService})
+      : chatService = chatService ?? FirebaseService();
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final FirebaseService _firebaseService = FirebaseService();
   List<Chat> _chats = [];
   final TextEditingController _controller = TextEditingController();
   bool _isLoading = true;
@@ -26,7 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadChats() async {
     try {
-      final chats = await _firebaseService.getAllChatsFromFirestore();
+      final chats = await widget.chatService.getAllChatsFromFirestore();
       setState(() {
         _chats = chats;
         _isLoading = false;
@@ -58,7 +58,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     try {
-      await _firebaseService.saveChatToFirestore(newChat);
+      await widget.chatService.saveChatToFirestore(newChat);
       _controller.clear();
       _loadChats(); // Refresh the list
       Navigator.push(
@@ -98,7 +98,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (confirm == true) {
       try {
-        await _firebaseService.deleteChatFromFirestore(chatId);
+        await widget.chatService.deleteChatFromFirestore(chatId);
         _loadChats();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
