@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Chat {
   final String id;
   final String title;
@@ -21,12 +23,8 @@ class Chat {
               ?.map((msg) => Message.fromJson(msg))
               .toList() ??
           [],
-      createdAt: json['createdAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['createdAt'])
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['updatedAt'])
-          : null,
+      createdAt: _readDate(json['createdAt']),
+      updatedAt: _readDate(json['updatedAt']),
     );
   }
 
@@ -55,6 +53,20 @@ class Chat {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  static DateTime? _readDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) {
+      final milliseconds = int.tryParse(value);
+      if (milliseconds != null) {
+        return DateTime.fromMillisecondsSinceEpoch(milliseconds);
+      }
+    }
+    if (value is Timestamp) return value.toDate();
+    return null;
+  }
 }
 
 class Message {
@@ -75,9 +87,7 @@ class Message {
       id: json['id'] ?? '',
       content: json['content'] ?? '',
       sender: json['sender'] ?? '',
-      timestamp: json['timestamp'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['timestamp'])
-          : DateTime.now(),
+      timestamp: _readDate(json['timestamp']) ?? DateTime.now(),
     );
   }
 
@@ -88,5 +98,19 @@ class Message {
       'sender': sender,
       'timestamp': timestamp.millisecondsSinceEpoch,
     };
+  }
+
+  static DateTime? _readDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) {
+      final milliseconds = int.tryParse(value);
+      if (milliseconds != null) {
+        return DateTime.fromMillisecondsSinceEpoch(milliseconds);
+      }
+    }
+    if (value is Timestamp) return value.toDate();
+    return null;
   }
 }
