@@ -6,7 +6,13 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (error) {
+    // Firebase is optional for the local-first experience. The app can still
+    // be used with local chats and tools when no platform config is present.
+    debugPrint('Firebase unavailable: $error');
+  }
   runApp(
     MultiProvider(
       providers: [

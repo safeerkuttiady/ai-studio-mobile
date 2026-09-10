@@ -14,11 +14,17 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _initAuth() {
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      _user = user;
+    try {
+      FirebaseAuth.instance.authStateChanges().listen((User? user) {
+        _user = user;
+        _isLoading = false;
+        notifyListeners();
+      });
+    } catch (error) {
+      debugPrint('Firebase auth unavailable: $error');
       _isLoading = false;
       notifyListeners();
-    });
+    }
   }
 
   Future<User?> signInAnonymously() async {

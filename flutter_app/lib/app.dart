@@ -15,7 +15,33 @@ class MyApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'AI Studio Mobile',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0E7490),
+          surface: const Color(0xFFF7FAFA),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF7FAFA),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF7FAFA),
+          foregroundColor: Color(0xFF12343B),
+          elevation: 0,
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
+            borderSide: BorderSide(color: Color(0xFFD7E4E5)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
+            borderSide: BorderSide(color: Color(0xFF0E7490), width: 2),
+          ),
+        ),
         useMaterial3: true,
       ),
       routerConfig: _router,
@@ -72,6 +98,10 @@ class _HomeScreenState extends State<HomeScreen> {
         children: _screens,
       ),
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF0E7490),
+        unselectedItemColor: const Color(0xFF789094),
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.chat),

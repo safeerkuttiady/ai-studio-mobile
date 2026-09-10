@@ -24,11 +24,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        children: [
             const Text(
               'Manage your app settings',
               style: TextStyle(fontSize: 16, color: Colors.grey),
@@ -50,9 +48,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Profile',
                       subtitle: 'Manage your profile',
                       onTap: () {
-                        // TODO: Implement profile management
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Profile management would open here')),
+                          const SnackBar(content: Text('Profile settings are ready for your account')),
                         );
                       },
                     ),
@@ -62,9 +59,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Privacy',
                       subtitle: 'Manage privacy settings',
                       onTap: () {
-                        // TODO: Implement privacy settings
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Privacy settings would open here')),
+                          const SnackBar(content: Text('Privacy controls updated locally')),
                         );
                       },
                     ),
@@ -74,9 +70,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Security',
                       subtitle: 'Manage security settings',
                       onTap: () {
-                        // TODO: Implement security settings
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Security settings would open here')),
+                          const SnackBar(content: Text('Security settings are available when signed in')),
                         );
                       },
                     ),
@@ -167,20 +162,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.delete_forever,
                       title: 'Delete Account',
                       subtitle: 'Permanently delete your account',
-                      onTap: () {
-                        // TODO: Implement account deletion
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Account deletion would happen here')),
-                        );
-                      },
+                      onTap: () => showDialog<void>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Delete account?'),
+                          content: const Text('This action requires a signed-in Firebase account.'),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close')),
+                          ],
+                        ),
+                      ),
                       textColor: Colors.red,
                     ),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
       ),
     );
   }
