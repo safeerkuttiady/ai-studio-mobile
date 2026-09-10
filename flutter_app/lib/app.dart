@@ -61,7 +61,7 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  final GoRouter _router = GoRouter(
+  static final GoRouter _router = GoRouter(
     initialLocation: '/home',
     routes: [
       GoRoute(
@@ -72,7 +72,7 @@ class MyApp extends StatelessWidget {
         path: '/chat-detail/:chatId',
         builder: (context, state) => ChatDetailScreen(
           chatId: state.pathParameters['chatId']!,
-          title: state.queryParameters['title'] ?? 'Chat',
+          title: state.uri.queryParameters['title'] ?? 'Chat',
         ),
       ),
     ],
