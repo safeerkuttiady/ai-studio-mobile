@@ -80,7 +80,7 @@ class AuthProvider extends ChangeNotifier {
       _user = user;
       _isLoading = false;
       notifyListeners();
-    });
+    }
   }
 
   Future<User?> signInAnonymously() async {

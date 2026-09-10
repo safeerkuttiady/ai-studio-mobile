@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/chat_model.dart';
+import '../services/local_storage_service.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -19,6 +21,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<Message> _messages = [];
+  bool _isThinking = false;
+  final LocalStorageService _storage = LocalStorageService();
 
   @override
   void initState() {
@@ -27,12 +31,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _loadMessages();
   }
 
-  void _loadMessages() {
-    // In a real app, this would load from Firebase or local storage
-    // For now, we'll initialize with an empty list
-    setState(() {
-      _messages = [];
-    });
+  Future<void> _loadMessages() async {
+    final chats = await _storage.loadChats();
+    final chat = chats.where((item) => item.id == widget.chatId).firstOrNull;
+    if (!mounted) return;
+    setState(() => _messages = chat?.messages ?? []);
+  }
+
+  Future<void> _saveMessages() async {
+    final chats = await _storage.loadChats();
+    final index = chats.indexWhere((chat) => chat.id == widget.chatId);
+    if (index == -1) return;
+    chats[index] = chats[index].copyWith(
+      messages: List<Message>.from(_messages),
+      updatedAt: DateTime.now(),
+    );
+    await _storage.saveChats(chats);
   }
 
   void _sendMessage() {
@@ -47,13 +61,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
       setState(() {
         _messages.add(newMessage);
+        _isThinking = true;
       });
 
       _messageController.clear();
+      _saveMessages();
       _scrollToBottom();
 
       // Simulate AI response after a delay
       Future.delayed(const Duration(seconds: 1), () {
+        if (!mounted) return;
         final aiResponse = Message(
           id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
           content: 'This is a simulated AI response to: "$text"',
@@ -63,7 +80,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
         setState(() {
           _messages.add(aiResponse);
+          _isThinking = false;
         });
+        _saveMessages();
         _scrollToBottom();
       });
     }
@@ -86,15 +105,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        actions: [
+          IconButton(
+            tooltip: 'Clear conversation',
+            onPressed: _messages.isEmpty
+                ? null
+                : () => setState(() => _messages.clear()),
+            icon: const Icon(Icons.delete_sweep_outlined),
+          ),
+        ],
       ),
       body: Column(
         children: [
           Expanded(
             child: _messages.isEmpty
-                ? const Center(
-                    child: Text('Start a conversation by sending a message'),
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.auto_awesome,
+                            size: 42,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(height: 12),
+                        const Text('What would you like to explore?',
+                            style: TextStyle(fontSize: 17)),
+                      ],
+                    ),
                   )
                 : ListView.builder(
                     controller: _scrollController,
@@ -121,6 +157,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               ),
                             ],
                           ),
+                          constraints: const BoxConstraints(maxWidth: 320),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
@@ -133,14 +170,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                       : Colors.black87,
                                 ),
                               ),
+                              if (!isUser)
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: IconButton(
+                                    tooltip: 'Copy response',
+                                    visualDensity: VisualDensity.compact,
+                                    icon: const Icon(Icons.copy_outlined,
+                                        size: 16),
+                                    onPressed: () {
+                                      Clipboard.setData(ClipboardData(
+                                          text: message.content));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content: Text('Response copied')),
+                                      );
+                                    },
+                                  ),
+                                ),
                               const SizedBox(height: 4),
                               Text(
                                 '${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: isUser 
-                                       ? Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7) 
-                                       : Colors.black54,
+                                      ? Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)
+                                      : Colors.black54,
                                 ),
                               ),
                             ],
@@ -150,26 +205,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     },
                   ),
           ),
+          if (_isThinking)
+            const Padding(
+              padding: EdgeInsets.only(left: 20, bottom: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('AI is thinking...',
+                    style: TextStyle(color: Color(0xFF668084))),
+              ),
+            ),
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _messageController,
                     decoration: const InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      hintText: 'Ask anything...',
+                      prefixIcon: Icon(Icons.chat_outlined),
                     ),
                     onSubmitted: (value) => _sendMessage(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                FloatingActionButton(
+                IconButton.filled(
+                  tooltip: 'Send message',
                   onPressed: _sendMessage,
-                  backgroundColor: Colors.blue,
-                  child: const Icon(Icons.send, color: Colors.white),
+                  icon: const Icon(Icons.send),
                 ),
               ],
             ),

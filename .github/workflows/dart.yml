@@ -24,10 +24,12 @@ jobs:
           channel: 'stable'
 
       - name: Install dependencies
+        working-directory: ./flutter_app
         run: flutter pub get
 
       # Uncomment this step to verify the use of 'flutter format' on each commit.
       # - name: Verify formatting
+      #   working-directory: ./flutter_app
       #   run: flutter format --output=none --set-exit-if-changed .
 
       # Consider passing '--fatal-infos' for slightly stricter analysis.
@@ -36,3 +38,19 @@ jobs:
 
       - name: Run tests
         run: flutter test
+        working-directory: ./flutter_app
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: ./flutter_app
+        run: flutter test
+
+      - name: Build APK
+        working-directory: ./flutter_app
+        run: flutter build apk --release
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk

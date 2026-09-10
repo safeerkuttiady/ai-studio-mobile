@@ -16,6 +16,9 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   List<Chat> _chats = [];
   final TextEditingController _controller = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final LocalStorageService _storage = LocalStorageService();
+  final List<Chat> _chats = [];
   bool _isLoading = true;
 
   @override
@@ -41,21 +44,25 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _createNewChat() async {
-    if (_controller.text.trim().isEmpty) {
+  void _createNewChat() {
+    final title = _controller.text.trim();
+    if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title for the new chat')),
+        const SnackBar(content: Text('Give your conversation a name first.')),
       );
       return;
     }
-
-    final newChat = Chat(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _controller.text.trim(),
-      messages: [],
+    final chat = Chat(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      title: title,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
+    setState(() => _chats.insert(0, chat));
+    _storage.saveChats(_chats);
+    _controller.clear();
+    _openChat(chat);
+  }
 
     try {
       await widget.chatService.saveChatToFirestore(newChat);
@@ -77,21 +84,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _handleDeleteChat(String chatId) async {
-    final confirm = await showDialog<bool>(
+  Future<void> _deleteChat(Chat chat) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Chat'),
-        content: const Text('Are you sure you want to delete this chat?'),
+        title: const Text('Delete conversation?'),
+        content: Text('Remove "${chat.title}" from this device?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton.tonal(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -112,113 +117,125 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chats'),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        title: const Text('Conversations'),
+        actions: [
+          IconButton(
+              tooltip: 'New conversation',
+              onPressed: _createNewChat,
+              icon: const Icon(Icons.add_comment_outlined)),
+        ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Manage your conversations',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+            Text('A calm space for clear thinking',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF668084))),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                hintText: 'Search conversations',
+                prefixIcon: Icon(Icons.search),
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _createNewChat(),
                     decoration: const InputDecoration(
-                      hintText: 'Enter chat title...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    onSubmitted: (value) => _createNewChat(),
+                        hintText: 'Name a new conversation',
+                        prefixIcon: Icon(Icons.edit_outlined)),
                   ),
                 ),
-                const SizedBox(width: 8),
-                FloatingActionButton(
-                  onPressed: _createNewChat,
-                  backgroundColor: Colors.blue,
-                  child: const Icon(Icons.add, color: Colors.white),
-                ),
+                const SizedBox(width: 10),
+                IconButton.filled(
+                    tooltip: 'Create conversation',
+                    onPressed: _createNewChat,
+                    icon: const Icon(Icons.arrow_forward)),
               ],
             ),
-            const SizedBox(height: 20),
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (_chats.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.message, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No chats yet',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+            const SizedBox(height: 26),
+            Text('Recent', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredChats.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.forum_outlined,
+                              size: 64,
+                              color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(height: 14),
+                          const Text('Your ideas start here',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 6),
+                          const Text('Create a conversation above to begin',
+                              style: TextStyle(color: Color(0xFF668084))),
+                        ],
                       ),
-                      const Text(
-                        'Create your first chat to get started',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _chats.length,
-                  itemBuilder: (context, index) {
-                    final chat = _chats[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        title: Text(
-                          chat.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          chat.updatedAt != null
-                              ? '${chat.updatedAt!.day}/${chat.updatedAt!.month}/${chat.updatedAt!.year}'
-                              : '',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _handleDeleteChat(chat.id),
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChatDetailScreen(
-                                chatId: chat.id,
-                                title: chat.title,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
+                    )
+                  : ListView.separated(
+                      itemCount: _filteredChats.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final chat = _filteredChats[index];
+                        return Card(
+                          elevation: 0,
+                          color: Colors.white,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 4),
+                            leading: CircleAvatar(
+                                backgroundColor: const Color(0xFFD9F1F0),
+                                child: Icon(Icons.chat_bubble_outline,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary)),
+                            title: Text(chat.title,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600)),
+                            subtitle: Text('Updated ${chat.updatedAt!.day}/'
+                                '${chat.updatedAt!.month}/${chat.updatedAt!.year}'),
+                            trailing: IconButton(
+                                tooltip: 'Delete conversation',
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _deleteChat(chat)),
+                            onTap: () => _openChat(chat),
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  List<Chat> get _filteredChats {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _chats;
+    return _chats
+        .where((chat) => chat.title.toLowerCase().contains(query))
+        .toList();
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 }
