@@ -145,9 +145,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isUser 
-                                ? Theme.of(context).colorScheme.primary 
-                                : Colors.grey[300],
+                             color: isUser 
+                                 ? Theme.of(context).colorScheme.primary 
+                                 : Colors.grey[300],
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(

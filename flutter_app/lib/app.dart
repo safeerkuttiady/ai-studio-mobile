@@ -70,6 +70,10 @@ class MyApp extends StatelessWidget {
       ),
       GoRoute(
         path: '/chat-detail/:chatId',
+          builder: (context, state) => ChatDetailScreen(
+            chatId: state.pathParameters['chatId']!,
+            title: state.uri.queryParameters['title'] ?? 'Chat',
+          ),
         builder: (context, state) => ChatDetailScreen(
           chatId: state.pathParameters['chatId']!,
           title: state.uri.queryParameters['title'] ?? 'Chat',
@@ -89,7 +93,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _screens = [
+  static final List<Widget> _screens = [
     ChatScreen(),
     CodeEditorScreen(),
     AIToolsScreen(),

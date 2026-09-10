@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import '../models/chat_model.dart';
-import '../services/local_storage_service.dart';
+import '../services/firebase_service.dart';
 import 'chat_detail_screen.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final ChatService chatService;
+
+  ChatScreen({super.key, ChatService? chatService})
+      : chatService = chatService ?? FirebaseService();
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  List<Chat> _chats = [];
   final TextEditingController _controller = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   final LocalStorageService _storage = LocalStorageService();
@@ -24,14 +28,20 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadChats() async {
-    final chats = await _storage.loadChats();
-    if (!mounted) return;
-    setState(() {
-      _chats
-        ..clear()
-        ..addAll(chats);
-      _isLoading = false;
-    });
+    try {
+      final chats = await widget.chatService.getAllChatsFromFirestore();
+      setState(() {
+        _chats = chats;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading chats: $e')),
+      );
+    }
   }
 
   void _createNewChat() {
@@ -54,13 +64,24 @@ class _ChatScreenState extends State<ChatScreen> {
     _openChat(chat);
   }
 
-  void _openChat(Chat chat) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChatDetailScreen(chatId: chat.id, title: chat.title),
-      ),
-    );
+    try {
+      await widget.chatService.saveChatToFirestore(newChat);
+      _controller.clear();
+      _loadChats(); // Refresh the list
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatDetailScreen(
+            chatId: newChat.id,
+            title: newChat.title,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create chat: $e')),
+      );
+    }
   }
 
   Future<void> _deleteChat(Chat chat) async {
@@ -79,9 +100,16 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
     );
-    if (confirmed == true) {
-      setState(() => _chats.remove(chat));
-      await _storage.saveChats(_chats);
+
+    if (confirm == true) {
+      try {
+        await widget.chatService.deleteChatFromFirestore(chatId);
+        _loadChats();
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete chat: $e')),
+        );
+      }
     }
   }
 
