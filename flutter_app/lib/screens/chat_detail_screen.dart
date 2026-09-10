@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/chat_model.dart';
+import '../services/local_storage_service.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -20,6 +22,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   List<Message> _messages = [];
   bool _isThinking = false;
+  final LocalStorageService _storage = LocalStorageService();
 
   @override
   void initState() {
@@ -28,8 +31,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _loadMessages();
   }
 
-  void _loadMessages() {
-    _messages = [];
+  Future<void> _loadMessages() async {
+    final chats = await _storage.loadChats();
+    final chat = chats.where((item) => item.id == widget.chatId).firstOrNull;
+    if (!mounted) return;
+    setState(() => _messages = chat?.messages ?? []);
+  }
+
+  Future<void> _saveMessages() async {
+    final chats = await _storage.loadChats();
+    final index = chats.indexWhere((chat) => chat.id == widget.chatId);
+    if (index == -1) return;
+    chats[index] = chats[index].copyWith(
+      messages: List<Message>.from(_messages),
+      updatedAt: DateTime.now(),
+    );
+    await _storage.saveChats(chats);
   }
 
   void _sendMessage() {
@@ -48,6 +65,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       });
 
       _messageController.clear();
+      _saveMessages();
       _scrollToBottom();
 
       // Simulate AI response after a delay
@@ -64,6 +82,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           _messages.add(aiResponse);
           _isThinking = false;
         });
+        _saveMessages();
         _scrollToBottom();
       });
     }
@@ -151,6 +170,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                       : Colors.black87,
                                 ),
                               ),
+                              if (!isUser)
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: IconButton(
+                                    tooltip: 'Copy response',
+                                    visualDensity: VisualDensity.compact,
+                                    icon: const Icon(Icons.copy_outlined,
+                                        size: 16),
+                                    onPressed: () {
+                                      Clipboard.setData(ClipboardData(
+                                          text: message.content));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content: Text('Response copied')),
+                                      );
+                                    },
+                                  ),
+                                ),
                               const SizedBox(height: 4),
                               Text(
                                 '${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}',
@@ -185,7 +222,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   child: TextField(
                     controller: _messageController,
                     decoration: const InputDecoration(
-                      hintText: 'Type a message...',
                       hintText: 'Ask anything...',
                       prefixIcon: Icon(Icons.chat_outlined),
                     ),

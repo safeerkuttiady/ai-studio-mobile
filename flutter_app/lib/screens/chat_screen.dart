@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/chat_model.dart';
+import '../services/local_storage_service.dart';
 import 'chat_detail_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -11,7 +12,27 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final LocalStorageService _storage = LocalStorageService();
   final List<Chat> _chats = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChats();
+  }
+
+  Future<void> _loadChats() async {
+    final chats = await _storage.loadChats();
+    if (!mounted) return;
+    setState(() {
+      _chats
+        ..clear()
+        ..addAll(chats);
+      _isLoading = false;
+    });
+  }
 
   void _createNewChat() {
     final title = _controller.text.trim();
@@ -28,6 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
       updatedAt: DateTime.now(),
     );
     setState(() => _chats.insert(0, chat));
+    _storage.saveChats(_chats);
     _controller.clear();
     _openChat(chat);
   }
@@ -57,7 +79,10 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
     );
-    if (confirmed == true) setState(() => _chats.remove(chat));
+    if (confirmed == true) {
+      setState(() => _chats.remove(chat));
+      await _storage.saveChats(_chats);
+    }
   }
 
   @override
@@ -80,6 +105,15 @@ class _ChatScreenState extends State<ChatScreen> {
             Text('A calm space for clear thinking',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFF668084))),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                hintText: 'Search conversations',
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
             const SizedBox(height: 18),
             Row(
               children: [
@@ -104,7 +138,9 @@ class _ChatScreenState extends State<ChatScreen> {
             Text('Recent', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 10),
             Expanded(
-              child: _chats.isEmpty
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredChats.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -123,10 +159,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     )
                   : ListView.separated(
-                      itemCount: _chats.length,
+                      itemCount: _filteredChats.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        final chat = _chats[index];
+                        final chat = _filteredChats[index];
                         return Card(
                           elevation: 0,
                           color: Colors.white,
@@ -160,9 +196,18 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  List<Chat> get _filteredChats {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _chats;
+    return _chats
+        .where((chat) => chat.title.toLowerCase().contains(query))
+        .toList();
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 }

@@ -6,13 +6,16 @@ import 'screens/ai_tools_screen.dart';
 import 'screens/workflow_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/chat_detail_screen.dart';
+import 'app_settings.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
+    return ValueListenableBuilder<bool>(
+      valueListenable: darkModeNotifier,
+      builder: (context, isDarkMode, _) => MaterialApp.router(
       title: 'AI Studio Mobile',
       theme: ThemeData(
         brightness: Brightness.light,
@@ -44,7 +47,17 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4DB6AC),
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       routerConfig: _router,
+      ),
     );
   }
 

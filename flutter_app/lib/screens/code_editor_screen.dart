@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/local_storage_service.dart';
 
 class CodeEditorScreen extends StatefulWidget {
   const CodeEditorScreen({super.key});
@@ -9,8 +10,20 @@ class CodeEditorScreen extends StatefulWidget {
 
 class _CodeEditorScreenState extends State<CodeEditorScreen> {
   final TextEditingController _codeController = TextEditingController();
+  final LocalStorageService _storage = LocalStorageService();
   String _language = 'Dart';
   String _status = 'Ready';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCode();
+  }
+
+  Future<void> _loadCode() async {
+    _codeController.text = await _storage.loadCode();
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +100,7 @@ class _CodeEditorScreenState extends State<CodeEditorScreen> {
                 ElevatedButton.icon(
                   onPressed: () {
                     setState(() => _status = 'Saved just now');
+                    _storage.saveCode(_codeController.text);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Snippet saved on this device')),
                     );

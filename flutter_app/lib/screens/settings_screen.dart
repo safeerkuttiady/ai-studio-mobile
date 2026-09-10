@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../app_settings.dart';
 import '../providers/auth_provider.dart';
+import '../services/local_storage_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,6 +15,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   bool _darkModeEnabled = false;
   String _selectedLanguage = 'English';
+  final LocalStorageService _storage = LocalStorageService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final darkMode = await _storage.loadBool(
+      LocalStorageService.darkModeKey,
+      fallback: false,
+    );
+    final notifications = await _storage.loadBool(
+      LocalStorageService.notificationsKey,
+      fallback: true,
+    );
+    final language = await _storage.loadString(LocalStorageService.languageKey);
+    if (!mounted) return;
+    setState(() {
+      _darkModeEnabled = darkMode;
+      _notificationsEnabled = notifications;
+      _selectedLanguage = language ?? 'English';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +125,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setState(() {
                           _darkModeEnabled = value;
                         });
+                        darkModeNotifier.value = value;
+                        _storage.saveBool(LocalStorageService.darkModeKey, value);
                       },
                     ),
                     const Divider(height: 8),
@@ -108,6 +137,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setState(() {
                           _notificationsEnabled = value;
                         });
+                        _storage.saveBool(
+                            LocalStorageService.notificationsKey, value);
                       },
                     ),
                     const Divider(height: 8),
@@ -121,6 +152,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           setState(() {
                             _selectedLanguage = newValue;
                           });
+                          _storage.saveString(
+                              LocalStorageService.languageKey, newValue);
                         }
                       },
                     ),
