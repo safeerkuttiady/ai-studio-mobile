@@ -6,9 +6,17 @@ import 'package:ai_studio_mobile/screens/settings_screen.dart';
 import 'package:ai_studio_mobile/providers/auth_provider.dart' as app_auth;
 
 void main() {
+  Future<void> setTestViewport(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+  }
+
   testWidgets('renders settings screen', (WidgetTester tester) async {
-    tester.binding.window.physicalSizeTestValue = const Size(1080, 1920);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
+    await setTestViewport(tester);
 
     await tester.pumpWidget(
       ChangeNotifierProvider<app_auth.AuthProvider>(
@@ -22,8 +30,7 @@ void main() {
   });
 
   testWidgets('renders account section', (WidgetTester tester) async {
-    tester.binding.window.physicalSizeTestValue = const Size(1080, 1920);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
+    await setTestViewport(tester);
 
     await tester.pumpWidget(
       ChangeNotifierProvider<app_auth.AuthProvider>(
@@ -39,8 +46,7 @@ void main() {
   });
 
   testWidgets('renders preferences section', (WidgetTester tester) async {
-    tester.binding.window.physicalSizeTestValue = const Size(1080, 1920);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
+    await setTestViewport(tester);
 
     await tester.pumpWidget(
       ChangeNotifierProvider<app_auth.AuthProvider>(
