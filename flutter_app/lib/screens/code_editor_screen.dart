@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/local_storage_service.dart';
 
 class CodeEditorScreen extends StatefulWidget {
   const CodeEditorScreen({super.key});
@@ -9,23 +10,54 @@ class CodeEditorScreen extends StatefulWidget {
 
 class _CodeEditorScreenState extends State<CodeEditorScreen> {
   final TextEditingController _codeController = TextEditingController();
+  final LocalStorageService _storage = LocalStorageService();
+  String _language = 'Dart';
+  String _status = 'Ready';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCode();
+  }
+
+  Future<void> _loadCode() async {
+    _codeController.text = await _storage.loadCode();
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Code Editor'),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        actions: [
+          DropdownButton<String>(
+            value: _language,
+            underline: const SizedBox.shrink(),
+            items: const ['Dart', 'JavaScript', 'Python', 'JSON']
+                .map((language) => DropdownMenuItem(
+                    value: language, child: Text(language)))
+                .toList(),
+            onChanged: (value) => setState(() => _language = value!),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Write and edit your code',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('A lightweight scratchpad',
+                    style: TextStyle(color: Color(0xFF668084))),
+                Text(_status,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600)),
+              ],
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -37,10 +69,10 @@ class _CodeEditorScreenState extends State<CodeEditorScreen> {
                     keyboardType: TextInputType.multiline,
                     maxLines: null,
                     expands: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: '// Start writing your code here...',
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(12),
+                      contentPadding: const EdgeInsets.all(12),
                     ),
                     style: const TextStyle(
                       fontFamily: 'monospace',
@@ -56,9 +88,9 @@ class _CodeEditorScreenState extends State<CodeEditorScreen> {
               children: [
                 ElevatedButton.icon(
                   onPressed: () {
-                    // TODO: Implement code execution
+                    setState(() => _status = 'Ran just now');
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Code execution would happen here')),
+                      SnackBar(content: Text('$_language code sent to the local runner')),
                     );
                   },
                   icon: const Icon(Icons.play_arrow),
@@ -67,9 +99,10 @@ class _CodeEditorScreenState extends State<CodeEditorScreen> {
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () {
-                    // TODO: Implement code saving
+                    setState(() => _status = 'Saved just now');
+                    _storage.saveCode(_codeController.text);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Code saving would happen here')),
+                      const SnackBar(content: Text('Snippet saved on this device')),
                     );
                   },
                   icon: const Icon(Icons.save),

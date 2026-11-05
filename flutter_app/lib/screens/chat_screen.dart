@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/chat_model.dart';
-import '../providers/auth_provider.dart';
 import '../services/firebase_service.dart';
+import '../services/local_storage_service.dart';
 import 'chat_detail_screen.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final ChatService chatService;
+
+  ChatScreen({super.key, ChatService? chatService})
+      : chatService = chatService ?? FirebaseService();
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final FirebaseService _firebaseService = FirebaseService();
   List<Chat> _chats = [];
   final TextEditingController _controller = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final LocalStorageService _storage = LocalStorageService();
   bool _isLoading = true;
 
   @override
@@ -26,199 +29,260 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadChats() async {
     try {
-      final chats = await _firebaseService.getAllChatsFromFirestore();
+      final chats = await _storage.loadChats();
+      if (!mounted) return;
       setState(() {
         _chats = chats;
         _isLoading = false;
       });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading chats: $e')),
+        SnackBar(content: Text('Error loading chats: $error')),
       );
     }
   }
 
   Future<void> _createNewChat() async {
-    if (_controller.text.trim().isEmpty) {
+    final title = _controller.text.trim();
+    if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title for the new chat')),
+        const SnackBar(content: Text('Give your conversation a name first.')),
       );
       return;
     }
 
-    final newChat = Chat(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _controller.text.trim(),
-      messages: [],
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+    final now = DateTime.now();
+    final chat = Chat(
+      id: now.microsecondsSinceEpoch.toString(),
+      title: title,
+      createdAt: now,
+      updatedAt: now,
     );
 
     try {
-      await _firebaseService.saveChatToFirestore(newChat);
+      await _storage.saveChat(chat);
+      if (!mounted) return;
+      setState(() => _chats.insert(0, chat));
       _controller.clear();
-      _loadChats(); // Refresh the list
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatDetailScreen(
-            chatId: newChat.id,
-            title: newChat.title,
-          ),
-        ),
-      );
-    } catch (e) {
+      // Cloud sync is best-effort so local chats remain available offline.
+      try {
+        await widget.chatService.saveChatToFirestore(chat);
+      } catch (_) {
+        // Firebase may be unavailable or the user may not be signed in.
+      }
+      if (!mounted) return;
+      await _openChat(chat);
+    } catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create chat: $e')),
+        SnackBar(content: Text('Failed to create chat: $error')),
       );
     }
   }
 
-  Future<void> _handleDeleteChat(String chatId) async {
-    final confirm = await showDialog<bool>(
+  Future<void> _openChat(Chat chat) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => ChatDetailScreen(
+          chatId: chat.id,
+          title: chat.title,
+        ),
+      ),
+    );
+    if (mounted) await _loadChats();
+  }
+
+  Future<void> _deleteChat(Chat chat) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Chat'),
-        content: const Text('Are you sure you want to delete this chat?'),
+        title: const Text('Delete conversation?'),
+        content: Text('Remove "${chat.title}" from this device?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
+    if (confirmed != true) return;
+    try {
+      await _storage.deleteChat(chat.id);
       try {
-        await _firebaseService.deleteChatFromFirestore(chatId);
-        _loadChats();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete chat: $e')),
-        );
+        await widget.chatService.deleteChatFromFirestore(chat.id);
+      } catch (_) {
+        // Local deletion should work when cloud sync is unavailable.
       }
+      if (!mounted) return;
+      setState(() => _chats.removeWhere((item) => item.id == chat.id));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete chat: $error')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final filteredChats = _filteredChats;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chats'),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        title: const Text('Conversations'),
+        actions: [
+          IconButton(
+            tooltip: 'New conversation',
+            onPressed: _createNewChat,
+            icon: const Icon(Icons.add_comment_outlined),
+          ),
+        ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Manage your conversations',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+            Text(
+              'A calm space for clear thinking',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: const Color(0xFF668084)),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                hintText: 'Search conversations',
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _createNewChat(),
                     decoration: const InputDecoration(
-                      hintText: 'Enter chat title...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      hintText: 'Name a new conversation',
+                      prefixIcon: Icon(Icons.edit_outlined),
                     ),
-                    onSubmitted: (value) => _createNewChat(),
                   ),
                 ),
-                const SizedBox(width: 8),
-                FloatingActionButton(
+                const SizedBox(width: 10),
+                IconButton.filled(
+                  tooltip: 'Create conversation',
                   onPressed: _createNewChat,
-                  backgroundColor: Colors.blue,
-                  child: const Icon(Icons.add, color: Colors.white),
+                  icon: const Icon(Icons.arrow_forward),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (_chats.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.message, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No chats yet',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                      ),
-                      const Text(
-                        'Create your first chat to get started',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _chats.length,
-                  itemBuilder: (context, index) {
-                    final chat = _chats[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        title: Text(
-                          chat.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          chat.updatedAt != null
-                              ? '${chat.updatedAt!.day}/${chat.updatedAt!.month}/${chat.updatedAt!.year}'
-                              : '',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _handleDeleteChat(chat.id),
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChatDetailScreen(
-                                chatId: chat.id,
-                                title: chat.title,
+            const SizedBox(height: 26),
+            Text('Recent', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredChats.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.forum_outlined,
+                                size: 64,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'Your ideas start here',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Create a conversation above to begin',
+                                style: TextStyle(color: Color(0xFF668084)),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: filteredChats.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final chat = filteredChats[index];
+                            final updatedAt = chat.updatedAt ?? chat.createdAt;
+                            return Card(
+                              elevation: 0,
+                              color: Colors.white,
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 4,
+                                ),
+                                leading: CircleAvatar(
+                                  backgroundColor: const Color(0xFFD9F1F0),
+                                  child: Icon(
+                                    Icons.chat_bubble_outline,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                                title: Text(
+                                  chat.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: updatedAt == null
+                                    ? null
+                                    : Text(
+                                        'Updated ${updatedAt.day}/${updatedAt.month}/${updatedAt.year}',
+                                      ),
+                                trailing: IconButton(
+                                  tooltip: 'Delete conversation',
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: () => _deleteChat(chat),
+                                ),
+                                onTap: () => _openChat(chat),
+                              ),
+                            );
+                          },
+                        ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  List<Chat> get _filteredChats {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _chats;
+    return _chats
+        .where((chat) => chat.title.toLowerCase().contains(query))
+        .toList();
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 }

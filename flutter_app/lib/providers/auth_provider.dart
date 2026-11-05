@@ -1,7 +1,78 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+abstract class AuthService {
+  Stream<User?> authStateChanges();
+  Future<User?> signInAnonymously();
+  Future<User?> signInWithEmailAndPassword(String email, String password);
+  Future<User?> createUserWithEmailAndPassword(String email, String password);
+  Future<void> signOut();
+}
+
+class FirebaseAuthService implements AuthService {
+  final FirebaseAuth _auth;
+
+  FirebaseAuthService([FirebaseAuth? auth])
+      : _auth = auth ?? FirebaseAuth.instance;
+
+  @override
+  Stream<User?> authStateChanges() => _auth.authStateChanges();
+
+  @override
+  Future<User?> signInAnonymously() async {
+    try {
+      final userCredential = await _auth.signInAnonymously();
+      return userCredential.user;
+    } catch (error) {
+      debugPrint('Sign in anonymously failed: $error');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<User?> signInWithEmailAndPassword(String email, String password) async {
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return userCredential.user;
+    } catch (error) {
+      debugPrint('Sign in failed: $error');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<User?> createUserWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
+    try {
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return userCredential.user;
+    } catch (error) {
+      debugPrint('Create user failed: $error');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> signOut() async {
+    try {
+      await _auth.signOut();
+    } catch (error) {
+      debugPrint('Sign out failed: $error');
+      rethrow;
+    }
+  }
+}
+
 class AuthProvider extends ChangeNotifier {
+  final AuthService _authService;
   User? _user;
   bool _isLoading = true;
 
@@ -9,12 +80,13 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _user != null;
 
-  AuthProvider() {
+  AuthProvider({AuthService? authService})
+      : _authService = authService ?? FirebaseAuthService() {
     _initAuth();
   }
 
   void _initAuth() {
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    _authService.authStateChanges().listen((User? user) {
       _user = user;
       _isLoading = false;
       notifyListeners();
@@ -23,41 +95,39 @@ class AuthProvider extends ChangeNotifier {
 
   Future<User?> signInAnonymously() async {
     try {
-      final userCredential = await FirebaseAuth.instance.signInAnonymously();
-      return userCredential.user;
-    } catch (e) {
-      debugPrint('Sign in anonymously failed: $e');
+      return await _authService.signInAnonymously();
+    } catch (error) {
+      debugPrint('Sign in anonymously failed: $error');
       rethrow;
     }
   }
 
   Future<User?> signInWithEmailAndPassword(String email, String password) async {
     try {
-      final userCredential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: email, password: password);
-      return userCredential.user;
-    } catch (e) {
-      debugPrint('Sign in failed: $e');
+      return await _authService.signInWithEmailAndPassword(email, password);
+    } catch (error) {
+      debugPrint('Sign in failed: $error');
       rethrow;
     }
   }
 
-  Future<User?> createUserWithEmailAndPassword(String email, String password) async {
+  Future<User?> createUserWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     try {
-      final userCredential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password);
-      return userCredential.user;
-    } catch (e) {
-      debugPrint('Create user failed: $e');
+      return await _authService.createUserWithEmailAndPassword(email, password);
+    } catch (error) {
+      debugPrint('Create user failed: $error');
       rethrow;
     }
   }
 
   Future<void> signOut() async {
     try {
-      await FirebaseAuth.instance.signOut();
-    } catch (e) {
-      debugPrint('Sign out failed: $e');
+      await _authService.signOut();
+    } catch (error) {
+      debugPrint('Sign out failed: $error');
       rethrow;
     }
   }

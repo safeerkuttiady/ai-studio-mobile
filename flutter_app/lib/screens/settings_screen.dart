@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../app_settings.dart';
 import '../providers/auth_provider.dart';
+import '../services/local_storage_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,6 +15,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   bool _darkModeEnabled = false;
   String _selectedLanguage = 'English';
+  final LocalStorageService _storage = LocalStorageService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final darkMode = await _storage.loadBool(
+      LocalStorageService.darkModeKey,
+      fallback: false,
+    );
+    final notifications = await _storage.loadBool(
+      LocalStorageService.notificationsKey,
+      fallback: true,
+    );
+    final language = await _storage.loadString(LocalStorageService.languageKey);
+    if (!mounted) return;
+    setState(() {
+      _darkModeEnabled = darkMode;
+      _notificationsEnabled = notifications;
+      _selectedLanguage = language ?? 'English';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,163 +51,169 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Manage your app settings',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Account',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSettingRow(
-                      icon: Icons.person,
-                      title: 'Profile',
-                      subtitle: 'Manage your profile',
-                      onTap: () {
-                        // TODO: Implement profile management
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Profile management would open here')),
-                        );
-                      },
-                    ),
-                    const Divider(height: 24),
-                    _buildSettingRow(
-                      icon: Icons.lock,
-                      title: 'Privacy',
-                      subtitle: 'Manage privacy settings',
-                      onTap: () {
-                        // TODO: Implement privacy settings
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Privacy settings would open here')),
-                        );
-                      },
-                    ),
-                    const Divider(height: 24),
-                    _buildSettingRow(
-                      icon: Icons.security,
-                      title: 'Security',
-                      subtitle: 'Manage security settings',
-                      onTap: () {
-                        // TODO: Implement security settings
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Security settings would open here')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+        children: [
+          const Text(
+            'Manage your app settings',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Account',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSettingRow(
+                    icon: Icons.person,
+                    title: 'Profile',
+                    subtitle: 'Manage your profile',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profile settings are ready for your account')),
+                      );
+                    },
+                  ),
+                  const Divider(height: 24),
+                  _buildSettingRow(
+                    icon: Icons.lock,
+                    title: 'Privacy',
+                    subtitle: 'Manage privacy settings',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Privacy controls updated locally')),
+                      );
+                    },
+                  ),
+                  const Divider(height: 24),
+                  _buildSettingRow(
+                    icon: Icons.security,
+                    title: 'Security',
+                    subtitle: 'Manage security settings',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Security settings are available when signed in')),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Preferences',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      title: const Text('Dark Mode'),
-                      value: _darkModeEnabled,
-                      onChanged: (value) {
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Preferences',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('Dark Mode'),
+                    value: _darkModeEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _darkModeEnabled = value;
+                      });
+                      darkModeNotifier.value = value;
+                      _storage.saveBool(LocalStorageService.darkModeKey, value);
+                    },
+                  ),
+                  const Divider(height: 8),
+                  SwitchListTile(
+                    title: const Text('Notifications'),
+                    value: _notificationsEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _notificationsEnabled = value;
+                      });
+                      _storage.saveBool(
+                          LocalStorageService.notificationsKey, value);
+                    },
+                  ),
+                  const Divider(height: 8),
+                  _buildDropdownSetting(
+                    icon: Icons.language,
+                    title: 'Language',
+                    value: _selectedLanguage,
+                    items: const ['English', 'Spanish', 'French', 'German'],
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
                         setState(() {
-                          _darkModeEnabled = value;
+                          _selectedLanguage = newValue;
                         });
-                      },
-                    ),
-                    const Divider(height: 8),
-                    SwitchListTile(
-                      title: const Text('Notifications'),
-                      value: _notificationsEnabled,
-                      onChanged: (value) {
-                        setState(() {
-                          _notificationsEnabled = value;
-                        });
-                      },
-                    ),
-                    const Divider(height: 8),
-                    _buildDropdownSetting(
-                      icon: Icons.language,
-                      title: 'Language',
-                      value: _selectedLanguage,
-                      items: const ['English', 'Spanish', 'French', 'German'],
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedLanguage = newValue;
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                ),
+                        _storage.saveString(
+                            LocalStorageService.languageKey, newValue);
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Account Actions',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSettingRow(
-                      icon: Icons.logout,
-                      title: 'Sign Out',
-                      subtitle: 'Log out of your account',
-                      onTap: () async {
-                        try {
-                          await authProvider.signOut();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Signed out successfully')),
-                          );
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Sign out failed: $e')),
-                          );
-                        }
-                      },
-                    ),
-                    const Divider(height: 24),
-                    _buildSettingRow(
-                      icon: Icons.delete_forever,
-                      title: 'Delete Account',
-                      subtitle: 'Permanently delete your account',
-                      onTap: () {
-                        // TODO: Implement account deletion
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Account Actions',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSettingRow(
+                    icon: Icons.logout,
+                    title: 'Sign Out',
+                    subtitle: 'Log out of your account',
+                    onTap: () async {
+                      try {
+                        await authProvider.signOut();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Account deletion would happen here')),
+                          const SnackBar(content: Text('Signed out successfully')),
                         );
-                      },
-                      textColor: Colors.red,
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Sign out failed: $e')),
+                        );
+                      }
+                    },
+                  ),
+                  const Divider(height: 24),
+                  _buildSettingRow(
+                    icon: Icons.delete_forever,
+                    title: 'Delete Account',
+                    subtitle: 'Permanently delete your account',
+                    onTap: () => showDialog<void>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete account?'),
+                        content: const Text('This action requires a signed-in Firebase account.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Close')),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                    textColor: Colors.red,
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

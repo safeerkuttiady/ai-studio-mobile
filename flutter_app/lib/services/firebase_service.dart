@@ -1,49 +1,67 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../models/chat_model.dart';
 
-class FirebaseService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
-  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+abstract class ChatService {
+  Future<List<Chat>> getAllChatsFromFirestore();
+  Future<void> saveChatToFirestore(Chat chat);
+  Future<void> deleteChatFromFirestore(String chatId);
+  Future<Chat?> getChatFromFirestore(String chatId);
+}
 
-  User? getCurrentUser() {
-    return _auth.currentUser;
-  }
+class FirebaseService implements ChatService {
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+  final FirebaseAnalytics _analytics;
+  final FirebaseCrashlytics _crashlytics;
 
-  // Authentication methods
+  FirebaseService({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+    FirebaseAnalytics? analytics,
+    FirebaseCrashlytics? crashlytics,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance,
+        _analytics = analytics ?? FirebaseAnalytics.instance,
+        _crashlytics = crashlytics ?? FirebaseCrashlytics.instance;
+
+  User? getCurrentUser() => _auth.currentUser;
+
   Future<User?> signInAnonymously() async {
     try {
-      final userCredential = await _auth.signInAnonymously();
-      return userCredential.user;
-    } catch (e) {
-      await _crashlytics.recordError(e, StackTrace.current);
+      return (await _auth.signInAnonymously()).user;
+    } catch (error) {
+      await _crashlytics.recordError(error, StackTrace.current);
       rethrow;
     }
   }
 
   Future<User?> signInWithEmailAndPassword(String email, String password) async {
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-          email: email, password: password);
-      return userCredential.user;
-    } catch (e) {
-      await _crashlytics.recordError(e, StackTrace.current);
+      return (await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      )).user;
+    } catch (error) {
+      await _crashlytics.recordError(error, StackTrace.current);
       rethrow;
     }
   }
 
   Future<User?> createUserWithEmailAndPassword(
-      String email, String password) async {
+    String email,
+    String password,
+  ) async {
     try {
-      final userCredential = await _auth.createUserWithEmailAndPassword(
-          email: email, password: password);
-      return userCredential.user;
-    } catch (e) {
-      await _crashlytics.recordError(e, StackTrace.current);
+      return (await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      )).user;
+    } catch (error) {
+      await _crashlytics.recordError(error, StackTrace.current);
       rethrow;
     }
   }
@@ -51,127 +69,111 @@ class FirebaseService {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
-    } catch (e) {
-      await _crashlytics.recordError(Exception('Sign out error'), StackTrace.current);
+    } catch (error) {
+      await _crashlytics.recordError(error, StackTrace.current);
       rethrow;
     }
   }
 
-  // Chat data methods
-  Future<DocumentReference> saveChatToFirestore(Chat chat) async {
+  @override
+  Future<void> saveChatToFirestore(Chat chat) async {
     try {
       final user = getCurrentUser();
-      if (user == null) {
-        throw Exception('User not authenticated');
-      }
+      if (user == null) throw Exception('User not authenticated');
 
       final chatRef = _firestore
           .collection('users')
           .doc(user.uid)
           .collection('chats')
           .doc(chat.id);
-
       await chatRef.set({
         ...chat.toJson(),
-        'createdAt': chat.createdAt?.millisecondsSinceEpoch ?? FieldValue.serverTimestamp(),
+        'createdAt': chat.createdAt?.millisecondsSinceEpoch ??
+            FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
-      // Log the event in analytics
       await _analytics.logEvent(
         name: 'chat_saved',
         parameters: {'chat_id': chat.id},
       );
-
-      return chatRef;
-    } catch (e) {
-      await _crashlytics.recordError(e, StackTrace.current);
+    } catch (error) {
+      await _crashlytics.recordError(error, StackTrace.current);
       rethrow;
     }
   }
 
+  @override
   Future<Chat?> getChatFromFirestore(String chatId) async {
     try {
       final user = getCurrentUser();
-      if (user == null) {
-        throw Exception('User not authenticated');
-      }
-
-      final chatRef = _firestore
+      if (user == null) throw Exception('User not authenticated');
+      final doc = await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('chats')
-          .doc(chatId);
-
-      final doc = await chatRef.get();
-      if (doc.exists) {
-        return Chat.fromJson(doc.data()!..['id'] = doc.id);
-      }
-      return null;
-    } catch (e) {
-      await _crashlytics.recordError(e, StackTrace.current);
+          .doc(chatId)
+          .get();
+      final data = doc.data();
+      if (data == null) return null;
+      data['id'] = doc.id;
+      return Chat.fromJson(data);
+    } catch (error) {
+      await _crashlytics.recordError(error, StackTrace.current);
       rethrow;
     }
   }
 
+  @override
   Future<List<Chat>> getAllChatsFromFirestore() async {
     try {
       final user = getCurrentUser();
-      if (user == null) {
-        throw Exception('User not authenticated');
-      }
-
-      final chatsSnapshot = await _firestore
+      if (user == null) throw Exception('User not authenticated');
+      final snapshot = await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('chats')
           .orderBy('updatedAt', descending: true)
           .get();
-
-      return chatsSnapshot.docs
-          .map((doc) => Chat.fromJson(doc.data()..['id'] = doc.id))
-          .toList();
-    } catch (e) {
-      await _crashlytics.recordError(e, StackTrace.current);
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return Chat.fromJson(data);
+      }).toList();
+    } catch (error) {
+      await _crashlytics.recordError(error, StackTrace.current);
       rethrow;
     }
   }
 
+  @override
   Future<void> deleteChatFromFirestore(String chatId) async {
     try {
       final user = getCurrentUser();
-      if (user == null) {
-        throw Exception('User not authenticated');
-      }
-
+      if (user == null) throw Exception('User not authenticated');
       await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('chats')
           .doc(chatId)
           .delete();
-
-      // Log the event in analytics
       await _analytics.logEvent(
         name: 'chat_deleted',
         parameters: {'chat_id': chatId},
       );
-    } catch (e) {
-      await _crashlytics.recordError(e, StackTrace.current);
+    } catch (error) {
+      await _crashlytics.recordError(error, StackTrace.current);
       rethrow;
     }
   }
 
-  // Analytics methods
   Future<void> logEvent(String eventName, Map<String, Object>? parameters) async {
     try {
       await _analytics.logEvent(name: eventName, parameters: parameters);
-    } catch (e) {
-      debugPrint('Analytics log error: $e');
+    } catch (error) {
+      debugPrint('Analytics log error: $error');
     }
   }
 
-  // Crashlytics methods
   Future<void> recordError(dynamic error) async {
     try {
       await _crashlytics.recordError(error, StackTrace.current);
@@ -180,12 +182,11 @@ class FirebaseService {
     }
   }
 
-  // Set user properties for analytics
   Future<void> setUserProperty(String name, String value) async {
     try {
       await _analytics.setUserProperty(name: name, value: value);
-    } catch (e) {
-      debugPrint('Error setting user property: $e');
+    } catch (error) {
+      debugPrint('Error setting user property: $error');
     }
   }
 }
