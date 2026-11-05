@@ -12,7 +12,8 @@ abstract class AuthService {
 class FirebaseAuthService implements AuthService {
   final FirebaseAuth _auth;
 
-  FirebaseAuthService([FirebaseAuth? auth]) : _auth = auth ?? FirebaseAuth.instance;
+  FirebaseAuthService([FirebaseAuth? auth])
+      : _auth = auth ?? FirebaseAuth.instance;
 
   @override
   Stream<User?> authStateChanges() => _auth.authStateChanges();
@@ -22,8 +23,8 @@ class FirebaseAuthService implements AuthService {
     try {
       final userCredential = await _auth.signInAnonymously();
       return userCredential.user;
-    } catch (e) {
-      debugPrint('Sign in anonymously failed: $e');
+    } catch (error) {
+      debugPrint('Sign in anonymously failed: $error');
       rethrow;
     }
   }
@@ -31,21 +32,30 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<User?> signInWithEmailAndPassword(String email, String password) async {
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       return userCredential.user;
-    } catch (e) {
-      debugPrint('Sign in failed: $e');
+    } catch (error) {
+      debugPrint('Sign in failed: $error');
       rethrow;
     }
   }
 
   @override
-  Future<User?> createUserWithEmailAndPassword(String email, String password) async {
+  Future<User?> createUserWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     try {
-      final userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       return userCredential.user;
-    } catch (e) {
-      debugPrint('Create user failed: $e');
+    } catch (error) {
+      debugPrint('Create user failed: $error');
       rethrow;
     }
   }
@@ -54,8 +64,8 @@ class FirebaseAuthService implements AuthService {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
-    } catch (e) {
-      debugPrint('Sign out failed: $e');
+    } catch (error) {
+      debugPrint('Sign out failed: $error');
       rethrow;
     }
   }
@@ -80,15 +90,14 @@ class AuthProvider extends ChangeNotifier {
       _user = user;
       _isLoading = false;
       notifyListeners();
-    }
+    });
   }
 
   Future<User?> signInAnonymously() async {
     try {
-      final userCredential = await _authService.signInAnonymously();
-      return userCredential;
-    } catch (e) {
-      debugPrint('Sign in anonymously failed: $e');
+      return await _authService.signInAnonymously();
+    } catch (error) {
+      debugPrint('Sign in anonymously failed: $error');
       rethrow;
     }
   }
@@ -96,17 +105,20 @@ class AuthProvider extends ChangeNotifier {
   Future<User?> signInWithEmailAndPassword(String email, String password) async {
     try {
       return await _authService.signInWithEmailAndPassword(email, password);
-    } catch (e) {
-      debugPrint('Sign in failed: $e');
+    } catch (error) {
+      debugPrint('Sign in failed: $error');
       rethrow;
     }
   }
 
-  Future<User?> createUserWithEmailAndPassword(String email, String password) async {
+  Future<User?> createUserWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     try {
       return await _authService.createUserWithEmailAndPassword(email, password);
-    } catch (e) {
-      debugPrint('Create user failed: $e');
+    } catch (error) {
+      debugPrint('Create user failed: $error');
       rethrow;
     }
   }
@@ -114,8 +126,8 @@ class AuthProvider extends ChangeNotifier {
   Future<void> signOut() async {
     try {
       await _authService.signOut();
-    } catch (e) {
-      debugPrint('Sign out failed: $e');
+    } catch (error) {
+      debugPrint('Sign out failed: $error');
       rethrow;
     }
   }

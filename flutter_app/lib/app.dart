@@ -16,47 +16,47 @@ class MyApp extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: darkModeNotifier,
       builder: (context, isDarkMode, _) => MaterialApp.router(
-      title: 'AI Studio Mobile',
-      theme: ThemeData(
-        brightness: Brightness.light,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0E7490),
-          surface: const Color(0xFFF7FAFA),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF7FAFA),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF7FAFA),
-          foregroundColor: Color(0xFF12343B),
-          elevation: 0,
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(14)),
-            borderSide: BorderSide.none,
+        title: 'AI Studio Mobile',
+        theme: ThemeData(
+          brightness: Brightness.light,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF0E7490),
+            surface: const Color(0xFFF7FAFA),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(14)),
-            borderSide: BorderSide(color: Color(0xFFD7E4E5)),
+          scaffoldBackgroundColor: const Color(0xFFF7FAFA),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFFF7FAFA),
+            foregroundColor: Color(0xFF12343B),
+            elevation: 0,
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(14)),
-            borderSide: BorderSide(color: Color(0xFF0E7490), width: 2),
+          inputDecorationTheme: const InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(14)),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(14)),
+              borderSide: BorderSide(color: Color(0xFFD7E4E5)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(14)),
+              borderSide: BorderSide(color: Color(0xFF0E7490), width: 2),
+            ),
           ),
+          useMaterial3: true,
         ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4DB6AC),
+        darkTheme: ThemeData(
           brightness: Brightness.dark,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF4DB6AC),
+            brightness: Brightness.dark,
+          ),
+          useMaterial3: true,
         ),
-        useMaterial3: true,
-      ),
-      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      routerConfig: _router,
+        themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+        routerConfig: _router,
       ),
     );
   }
@@ -70,10 +70,6 @@ class MyApp extends StatelessWidget {
       ),
       GoRoute(
         path: '/chat-detail/:chatId',
-          builder: (context, state) => ChatDetailScreen(
-            chatId: state.pathParameters['chatId']!,
-            title: state.uri.queryParameters['title'] ?? 'Chat',
-          ),
         builder: (context, state) => ChatDetailScreen(
           chatId: state.pathParameters['chatId']!,
           title: state.uri.queryParameters['title'] ?? 'Chat',
@@ -95,16 +91,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static final List<Widget> _screens = [
     ChatScreen(),
-    CodeEditorScreen(),
-    AIToolsScreen(),
-    WorkflowScreen(),
-    SettingsScreen(),
+    const CodeEditorScreen(),
+    const AIToolsScreen(),
+    const WorkflowScreen(),
+    const SettingsScreen(),
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
   @override
@@ -120,18 +114,9 @@ class _HomeScreenState extends State<HomeScreen> {
         unselectedItemColor: const Color(0xFF789094),
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.code),
-            label: 'Code',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.widgets),
-            label: 'Tools',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
+          BottomNavigationBarItem(icon: Icon(Icons.code), label: 'Code'),
+          BottomNavigationBarItem(icon: Icon(Icons.widgets), label: 'Tools'),
           BottomNavigationBarItem(
             icon: Icon(Icons.assignment),
             label: 'Workflow',
